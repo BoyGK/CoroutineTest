@@ -1,0 +1,4 @@
+include ':serverlib'
+include ':kotlinlib'
+include ':app'
+rootProject.name = "TestApplication"
