@@ -27,19 +27,6 @@ class RpcSocketIntercept : RpcIntercept {
         objectOutputStream.writeObject(result)
         objectOutputStream.flush()
 
-        /*
-        //no socket cache just now
-        if (socket.isConnected) {
-            socket.shutdownInput()
-            socket.shutdownOutput()
-        }
-        inputStream.close()
-        outputStream.close()
-        objectInputStream.close()
-        objectOutputStream.close()
-        socket.close()
-         */
-
         return true
 
     }

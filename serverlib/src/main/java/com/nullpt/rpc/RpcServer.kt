@@ -3,6 +3,7 @@ package com.nullpt.rpc
 import com.nullpt.rpc.intercepter.RpcDispatchIntercept
 import com.nullpt.rpc.intercepter.RpcSecretIntercept
 import com.nullpt.rpc.intercepter.RpcSocketIntercept
+import java.lang.Exception
 import java.net.ServerSocket
 import java.net.Socket
 import java.util.concurrent.Executors
@@ -50,12 +51,28 @@ class RpcServer(private val socket: Socket) : Runnable {
         intercepts += RpcDispatchIntercept()
 
         while (true) {
-            //socket reuse
-            val realInterceptorChain = RealInterceptorChain(socket, intercepts, 0)
-            val result = realInterceptorChain.proceed(socket)
+            try {
+                //socket reuse
+                val realInterceptorChain = RealInterceptorChain(socket, intercepts, 0)
+                val result = realInterceptorChain.proceed(socket)
 
-            log {
-                "rpc function call ${if (result as Boolean) "success" else "error!!!"}"
+                log {
+                    "rpc function call ${if (result as Boolean) "success" else "error!!!"}"
+                }
+            } catch (e: Exception) {
+                if (!socket.isInputShutdown) {
+                    socket.shutdownInput()
+                }
+                if (!socket.isOutputShutdown) {
+                    socket.shutdownOutput()
+                }
+                if (socket.isConnected) {
+                    socket.close()
+                }
+                log {
+                    e.message ?: "socket close!!"
+                }
+                break
             }
         }
     }
