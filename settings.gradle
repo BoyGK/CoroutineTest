@@ -1,4 +1,3 @@
 include ':clientlib'
-include ':serverlib'
 include ':app'
 rootProject.name = "TestApplication"

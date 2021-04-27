@@ -4,17 +4,44 @@ import com.nullpt.rpc.intercepter.RpcDispatchIntercept
 import com.nullpt.rpc.intercepter.RpcSecretIntercept
 import com.nullpt.rpc.intercepter.RpcSocketIntercept
 import java.net.ServerSocket
+import java.net.Socket
+import java.util.concurrent.Executors
 
+/**
+ * rpc server
+ */
+class RpcServer(private val socket: Socket) : Runnable {
 
-class RpcServer {
+    companion object {
+        @Volatile
+        private var cancel = false
 
-    @Volatile
-    private var cancel = false
+        fun receive() {
 
-    fun receive() {
+            val executors = Executors.newCachedThreadPool()
 
-        //create server
-        val serverSocket = ServerSocket(6789)
+            //create server
+            val serverSocket = ServerSocket(6789)
+
+            while (true) {
+                val socket = serverSocket.accept()
+                executors.execute(RpcServer(socket))
+
+                if (cancel) {
+                    break
+                }
+            }
+        }
+
+        /**
+         * after next task
+         */
+        fun stop() {
+            cancel = true
+        }
+    }
+
+    override fun run() {
 
         //net layer
         val intercepts: MutableList<RpcIntercept> = ArrayList()
@@ -22,25 +49,14 @@ class RpcServer {
         intercepts += RpcSecretIntercept()
         intercepts += RpcDispatchIntercept()
 
-        val realInterceptorChain = RealInterceptorChain(serverSocket, intercepts, 0)
-
         while (true) {
-            val result = realInterceptorChain.proceed(serverSocket)
+            //socket reuse
+            val realInterceptorChain = RealInterceptorChain(socket, intercepts, 0)
+            val result = realInterceptorChain.proceed(socket)
 
             log {
                 "rpc function call ${if (result as Boolean) "success" else "error!!!"}"
             }
-
-            if (cancel) {
-                break
-            }
         }
-    }
-
-    /**
-     * after next task
-     */
-    fun stop() {
-        cancel = true
     }
 }

@@ -46,9 +46,9 @@ class RpcSecretIntercept : RpcIntercept {
      */
     private fun encrypt(result: Any): ByteArray {
         val byteArrayOutputStream = ByteArrayOutputStream()
-        val objectInputStream = ObjectOutputStream(byteArrayOutputStream)
-        objectInputStream.writeObject(result)
-        objectInputStream.close()
+        val objectOutputStream = ObjectOutputStream(byteArrayOutputStream)
+        objectOutputStream.writeObject(result)
+        objectOutputStream.close()
         return byteArrayOutputStream.toByteArray()
     }
 }

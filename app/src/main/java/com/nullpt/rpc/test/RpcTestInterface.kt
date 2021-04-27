@@ -1,4 +1,4 @@
-package com.nullpt.rpc.tets
+package com.nullpt.rpc.test
 
 import com.nullpt.rpc.RpcInterface
 
@@ -7,5 +7,5 @@ import com.nullpt.rpc.RpcInterface
  */
 interface RpcTestInterface : RpcInterface {
 
-    fun addString(a: String, b: String): String
+    suspend fun addString(a: String, b: String): String
 }

@@ -7,7 +7,7 @@ import com.nullpt.rpc.RpcObject
  * rpc result call
  * make sure has result
  */
-class RpcResultParseIntercept(private val default: (args: Array<Any>) -> Any) : RpcIntercept {
+internal class RpcResultParseIntercept(private val default: (args: Array<Any>) -> Any) : RpcIntercept {
 
     override fun next(chain: RpcIntercept.Chain): Any {
         val rpcObject = chain.request() as RpcObject

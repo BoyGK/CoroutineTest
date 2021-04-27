@@ -3,7 +3,7 @@ package com.nullpt.rpc.intercepter
 import com.nullpt.rpc.RpcIntercept
 import java.io.ObjectInputStream
 import java.io.ObjectOutputStream
-import java.net.ServerSocket
+import java.net.Socket
 
 /**
  * rpc socket layer
@@ -11,9 +11,8 @@ import java.net.ServerSocket
 class RpcSocketIntercept : RpcIntercept {
 
     override fun next(chain: RpcIntercept.Chain): Any {
-        //create socket
-        val serverSocket = chain.request() as ServerSocket
-        val socket = serverSocket.accept()
+        //accept socket
+        val socket = chain.request() as Socket
 
         val inputStream = socket.getInputStream()
         val objectInputStream = ObjectInputStream(inputStream)
@@ -28,6 +27,7 @@ class RpcSocketIntercept : RpcIntercept {
         objectOutputStream.writeObject(result)
         objectOutputStream.flush()
 
+        /*
         //no socket cache just now
         if (socket.isConnected) {
             socket.shutdownInput()
@@ -38,6 +38,7 @@ class RpcSocketIntercept : RpcIntercept {
         objectInputStream.close()
         objectOutputStream.close()
         socket.close()
+         */
 
         return true
 

@@ -2,35 +2,59 @@ package com.nullpt.rpc.intercepter
 
 import com.nullpt.rpc.Config
 import com.nullpt.rpc.RpcIntercept
-import java.io.InputStream
+import com.nullpt.rpc.log
 import java.io.ObjectInputStream
 import java.io.ObjectOutputStream
-import java.io.OutputStream
 import java.net.InetSocketAddress
 import java.net.Socket
 
 /**
  * rpc socket layer
  */
-class RpcSocketIntercept : RpcIntercept {
+internal class RpcSocketIntercept : RpcIntercept {
+
+    companion object {
+
+        private val socketCache = LinkedHashMap<SocketAddress, Socket>()
+
+        private fun connectedSocket(): Socket {
+            synchronized(socketCache) {
+                if (socketCache.size > 0) {
+                    val address =
+                            socketCache.keys.find { Config.ip == it.ip && Config.port == it.port }
+                    if (address != null) {
+                        val socket = socketCache.remove(address)
+                        if (socket != null && socket.isConnected) {
+                            //return connected socket
+                            log { "use cache socket" }
+                            return socket
+                        }
+                    }
+                }
+            }
+            //create socket and connect
+            log { "use new create socket" }
+            val socket = Socket()
+            socket.connect(InetSocketAddress(Config.ip, Config.port), Config.timeout)
+            return socket
+        }
+    }
 
     override fun next(chain: RpcIntercept.Chain): Any {
         var socket: Socket? = null
-        var outputStream: OutputStream? = null
-        var inputStream: InputStream? = null
         try {
             //create socket ,and connect
-            socket = Socket()
-            socket.connect(InetSocketAddress(Config.ip, Config.port), Config.timeout)
-            outputStream = socket.getOutputStream()
-            inputStream = socket.getInputStream()
-            val objectInputStream = ObjectInputStream(inputStream)
-            val objectOutputStream = ObjectOutputStream(outputStream)
+            socket = connectedSocket()
 
             val rpcRequestObject = chain.request()
+
+            val outputStream = socket.getOutputStream()
+            val objectOutputStream = ObjectOutputStream(outputStream)
             objectOutputStream.writeObject(rpcRequestObject)
             objectOutputStream.flush()
 
+            val inputStream = socket.getInputStream()
+            val objectInputStream = ObjectInputStream(inputStream)
             return objectInputStream.readObject()
 
         } catch (e: Exception) {
@@ -40,15 +64,12 @@ class RpcSocketIntercept : RpcIntercept {
         } finally {
             //finish
             socket?.let {
-                if (it.isConnected) {
-                    it.shutdownInput()
-                    it.shutdownOutput()
-                }
+                socketCache.put(SocketAddress(Config.ip, Config.port), socket)
             }
-            inputStream?.close()
-            outputStream?.close()
-            socket?.close()
         }
 
     }
+
+    //socket cache
+    inner class SocketAddress(val ip: String, val port: Int)
 }

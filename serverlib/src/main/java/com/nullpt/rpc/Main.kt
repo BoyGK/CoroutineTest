@@ -11,11 +11,10 @@ import java.util.concurrent.Executors
 
 fun main() {
 
-    val rpc = RpcServer()
     val executors = Executors.newCachedThreadPool()
 
     //start server
-    executors.execute { rpc.receive() }
+    executors.execute { RpcServer.receive() }
 
     //start test client
     executors.execute {
@@ -23,7 +22,7 @@ fun main() {
         while (scanner.hasNext()) {
             when (scanner.next()) {
                 "stop" -> {
-                    rpc.stop()
+                    RpcServer.stop()
                 }
                 "test" -> {
                     try {
@@ -79,8 +78,8 @@ private fun testDecrypt(rpcRequestObject: Any): Any {
  */
 private fun testEncrypt(result: Any): Any {
     val byteArrayOutputStream = ByteArrayOutputStream()
-    val objectInputStream = ObjectOutputStream(byteArrayOutputStream)
-    objectInputStream.writeObject(result)
-    objectInputStream.close()
+    val objectOutputStream = ObjectOutputStream(byteArrayOutputStream)
+    objectOutputStream.writeObject(result)
+    objectOutputStream.close()
     return byteArrayOutputStream.toByteArray()
 }

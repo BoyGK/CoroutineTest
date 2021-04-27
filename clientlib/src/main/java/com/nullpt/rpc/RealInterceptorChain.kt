@@ -3,7 +3,7 @@ package com.nullpt.rpc
 /**
  * rpc net control
  */
-class RealInterceptorChain(
+internal class RealInterceptorChain(
         private val request: Any,
         private val intercepts: List<RpcIntercept>,
         private val index: Int

@@ -10,7 +10,7 @@ import java.io.*
  * read real object from inputStream and transfer it
  * return encrypt object
  */
-class RpcSecretIntercept : RpcIntercept {
+internal class RpcSecretIntercept : RpcIntercept {
 
     override fun next(chain: RpcIntercept.Chain): Any {
         val rpcObject = chain.request() as RpcObject
@@ -43,9 +43,9 @@ class RpcSecretIntercept : RpcIntercept {
      */
     private fun encrypt(rpcObject: RpcObject): ByteArray {
         val byteArrayOutputStream = ByteArrayOutputStream()
-        val objectInputStream = ObjectOutputStream(byteArrayOutputStream)
-        objectInputStream.writeObject(rpcObject)
-        objectInputStream.close()
+        val objectOutputStream = ObjectOutputStream(byteArrayOutputStream)
+        objectOutputStream.writeObject(rpcObject)
+        objectOutputStream.close()
         return byteArrayOutputStream.toByteArray()
     }
 }

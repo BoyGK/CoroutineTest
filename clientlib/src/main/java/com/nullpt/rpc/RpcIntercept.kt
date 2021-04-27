@@ -3,7 +3,7 @@ package com.nullpt.rpc
 /**
  * rpc net control
  */
-interface RpcIntercept {
+internal interface RpcIntercept {
 
     fun next(chain: Chain): Any
 
