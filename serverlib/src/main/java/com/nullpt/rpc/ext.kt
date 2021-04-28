@@ -1,5 +1,13 @@
 package com.nullpt.rpc
 
+
+/**
+ * net config
+ */
+object Config {
+    const val port = 6789
+}
+
 /**
  * list<t>+t
  * list<t>+=t

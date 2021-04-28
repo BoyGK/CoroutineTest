@@ -26,7 +26,7 @@ fun main() {
                 }
                 "test" -> {
                     try {
-                        val socket = Socket("localhost", 6789)
+                        val socket = Socket("localhost", Config.port)
                         val os = socket.getOutputStream()
                         val iss = socket.getInputStream()
                         val objectOutputStream = ObjectOutputStream(os)
@@ -68,7 +68,7 @@ private fun testDecrypt(rpcRequestObject: Any): Any {
         }
         return Unit
     }
-    val byteArrayInputStream = ByteArrayInputStream(rpcRequestObject as ByteArray)
+    val byteArrayInputStream = ByteArrayInputStream(rpcRequestObject)
     val objectInputStream = ObjectInputStream(byteArrayInputStream)
     return objectInputStream.readObject()
 }

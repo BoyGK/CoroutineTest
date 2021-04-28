@@ -22,7 +22,7 @@ class RpcServer(private val socket: Socket) : Runnable {
             val executors = Executors.newCachedThreadPool()
 
             //create server
-            val serverSocket = ServerSocket(6789)
+            val serverSocket = ServerSocket(Config.port)
 
             while (true) {
                 val socket = serverSocket.accept()
