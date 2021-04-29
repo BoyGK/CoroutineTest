@@ -2,6 +2,7 @@ package com.nullpt.rpc.intercepter
 
 import com.nullpt.rpc.RpcIntercept
 import com.nullpt.rpc.RpcObject
+import com.nullpt.rpc.RpcStream
 import com.nullpt.rpc.log
 import java.io.*
 
@@ -12,27 +13,27 @@ import java.io.*
  */
 internal class RpcSecretIntercept : RpcIntercept {
 
-    override fun next(chain: RpcIntercept.Chain): Any {
-        val rpcObject = chain.request() as RpcObject
+    override fun next(chain: RpcIntercept.Chain): RpcStream {
+        val inStream = chain.request()
+        val rpcObject = inStream.rpcObject ?: return inStream
         //encrypt
-        val result = chain.proceed(encrypt(rpcObject))
-        if (result is Unit) {
-            return Unit
+        inStream.secretBody = encrypt(rpcObject)
+        val outStream = chain.proceed(inStream)
+
+        val secretBody = outStream.secretBody ?: ByteArray(0)
+        if (secretBody.isEmpty()) {
+            outStream.result = Unit
+            return outStream
         }
         //decrypt
-        return decrypt(result)
+        outStream.result = decrypt(secretBody)
+        return outStream
     }
 
     /**
      * assume decrypt
      */
-    private fun decrypt(rpcResponseObject: Any): Any {
-        if (rpcResponseObject !is ByteArray) {
-            log {
-                "decrypt error!"
-            }
-            return Unit
-        }
+    private fun decrypt(rpcResponseObject: ByteArray): Any {
         val byteArrayInputStream = ByteArrayInputStream(rpcResponseObject)
         val objectInputStream = ObjectInputStream(byteArrayInputStream)
         return objectInputStream.readObject()

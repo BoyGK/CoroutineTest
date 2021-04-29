@@ -44,17 +44,20 @@ class RpcNetLayer {
 
             //net layer
             val intercepts: MutableList<RpcIntercept> = ArrayList()
-            intercepts += RpcFunctionIntercept(clazz, method, args)
+            intercepts += RpcFunctionIntercept()
             intercepts += RpcResultParseIntercept(default)
             intercepts += RpcSecretIntercept()
             intercepts += RpcSocketIntercept()
 
-            val realInterceptorChain = RealInterceptorChain(Unit, intercepts, 0)
-            val result = realInterceptorChain.proceed(Unit)
+            val inStream = RpcStream(clazz, method, args, default)
+            val realInterceptorChain = RealInterceptorChain(inStream, intercepts, 0)
+            val outStream = realInterceptorChain.proceed(inStream)
 
             log {
-                "result:$result"
+                "result:$outStream"
             }
+
+            val result = outStream.result ?: Unit
 
             //net finish, instance can use
             rpcNetLayerCache.add(this@RpcNetLayer)

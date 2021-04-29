@@ -2,7 +2,7 @@ package com.nullpt.rpc.intercepter
 
 import com.nullpt.rpc.RpcIntercept
 import com.nullpt.rpc.RpcObject
-import com.nullpt.rpc.log
+import com.nullpt.rpc.RpcStream
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.ObjectInputStream
@@ -15,36 +15,43 @@ import java.io.ObjectOutputStream
  */
 class RpcSecretIntercept : RpcIntercept {
 
-    override fun next(chain: RpcIntercept.Chain): Any {
+    override fun next(chain: RpcIntercept.Chain): RpcStream {
         //decrypt
-        val rpcObject = decrypt(chain.request())
-        if (rpcObject is Unit) {
-            return Unit
-        }
-        val result = chain.proceed(rpcObject)
+        val inStream = chain.request()
+        val secretBody = inStream.secretBody ?: ByteArray(0)
+        inStream.secretBody = null
+        val rpcObject = decrypt(secretBody) ?: return inStream
+        inStream.rpcObject = rpcObject
+        val outStream = chain.proceed(inStream)
         //encrypt
-        return encrypt(result)
+        outStream.secretBody = encrypt(outStream.result)
+        return outStream
     }
 
     /**
      * assume decrypt
      */
-    private fun decrypt(rpcRequestObject: Any): Any {
-        if (rpcRequestObject !is ByteArray) {
-            log {
-                "decrypt error!"
-            }
-            return Unit
+    private fun decrypt(secretBody: ByteArray): RpcObject? {
+        if (secretBody.isEmpty()) {
+            return null
         }
-        val byteArrayInputStream = ByteArrayInputStream(rpcRequestObject)
+        val byteArrayInputStream = ByteArrayInputStream(secretBody)
         val objectInputStream = ObjectInputStream(byteArrayInputStream)
-        return objectInputStream.readObject() as RpcObject
+        val rpcObject = objectInputStream.readObject()
+        return if (rpcObject is RpcObject) {
+            rpcObject
+        } else {
+            null
+        }
     }
 
     /**
      * assume encrypt
      */
-    private fun encrypt(result: Any): ByteArray {
+    private fun encrypt(result: Any?): ByteArray {
+        if (result == null || result is Unit) {
+            return ByteArray(0)
+        }
         val byteArrayOutputStream = ByteArrayOutputStream()
         val objectOutputStream = ObjectOutputStream(byteArrayOutputStream)
         objectOutputStream.writeObject(result)

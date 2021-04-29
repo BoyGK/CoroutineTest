@@ -1,9 +1,6 @@
 package com.nullpt.rpc.intercepter
 
-import com.nullpt.rpc.RpcFactory
-import com.nullpt.rpc.RpcIntercept
-import com.nullpt.rpc.RpcObject
-import com.nullpt.rpc.log
+import com.nullpt.rpc.*
 import java.lang.Exception
 import kotlin.jvm.Throws
 
@@ -12,12 +9,14 @@ import kotlin.jvm.Throws
  */
 class RpcDispatchIntercept : RpcIntercept {
 
-    override fun next(chain: RpcIntercept.Chain): Any {
-        val rpcObject = chain.request() as RpcObject
+    override fun next(chain: RpcIntercept.Chain): RpcStream {
+        val inStream = chain.request()
+        val rpcObject = inStream.rpcObject ?: return inStream
         val logInfo: (info: String) -> Unit = {
             log { it }
         }
-        return dispatchRpc(rpcObject, logInfo)
+        inStream.result = dispatchRpc(rpcObject, logInfo)
+        return inStream
     }
 
     private fun dispatchRpc(rpcObject: RpcObject, callback: (info: String) -> Unit = {}): Any {

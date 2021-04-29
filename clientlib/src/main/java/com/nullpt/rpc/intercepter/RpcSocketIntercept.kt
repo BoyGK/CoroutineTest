@@ -2,6 +2,7 @@ package com.nullpt.rpc.intercepter
 
 import com.nullpt.rpc.Config
 import com.nullpt.rpc.RpcIntercept
+import com.nullpt.rpc.RpcStream
 import com.nullpt.rpc.log
 import java.io.ObjectInputStream
 import java.io.ObjectOutputStream
@@ -40,31 +41,41 @@ internal class RpcSocketIntercept : RpcIntercept {
         }
     }
 
-    override fun next(chain: RpcIntercept.Chain): Any {
+    override fun next(chain: RpcIntercept.Chain): RpcStream {
         var socket: Socket? = null
         try {
+            val inStream = chain.request()
+            val secretBody = inStream.secretBody ?: return inStream
+            inStream.secretBody = null
+
             //create socket ,and connect
             socket = connectedSocket()
 
-            val rpcRequestObject = chain.request()
-
             val outputStream = socket.getOutputStream()
             val objectOutputStream = ObjectOutputStream(outputStream)
-            objectOutputStream.writeObject(rpcRequestObject)
+            objectOutputStream.writeObject(secretBody)
             objectOutputStream.flush()
 
             val inputStream = socket.getInputStream()
             val objectInputStream = ObjectInputStream(inputStream)
-            return objectInputStream.readObject()
+            val responseBody = objectInputStream.readObject()
+            inStream.secretBody = if (responseBody is ByteArray) {
+                responseBody
+            } else {
+                ByteArray(0)
+            }
+            return inStream
 
         } catch (e: Exception) {
             e.printStackTrace()
 
-            return Unit
+            return chain.request()
         } finally {
             //finish
             socket?.let {
-                socketCache.put(SocketAddress(Config.ip, Config.port), socket)
+                if (socket.isConnected) {
+                    socketCache[SocketAddress(Config.ip, Config.port)] = socket
+                }
             }
         }
 

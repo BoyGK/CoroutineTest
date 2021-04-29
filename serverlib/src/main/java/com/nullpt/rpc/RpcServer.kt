@@ -23,15 +23,11 @@ class RpcServer(private val socket: Socket) : Runnable {
 
             //create server
             val serverSocket = ServerSocket(Config.port)
-
-            while (true) {
+            do {
                 val socket = serverSocket.accept()
                 executors.execute(RpcServer(socket))
+            } while (!cancel)
 
-                if (cancel) {
-                    break
-                }
-            }
         }
 
         /**
@@ -53,11 +49,12 @@ class RpcServer(private val socket: Socket) : Runnable {
         while (true) {
             try {
                 //socket reuse
-                val realInterceptorChain = RealInterceptorChain(socket, intercepts, 0)
-                val result = realInterceptorChain.proceed(socket)
+                val inStream = RpcStream(socket)
+                val realInterceptorChain = RealInterceptorChain(inStream, intercepts, 0)
+                val outStream = realInterceptorChain.proceed(inStream)
 
                 log {
-                    "rpc function call ${if (result as Boolean) "success" else "error!!!"}"
+                    "rpc function call ${if (outStream.result as Boolean) "success" else "error!!!"}"
                 }
             } catch (e: Exception) {
                 if (!socket.isInputShutdown) {

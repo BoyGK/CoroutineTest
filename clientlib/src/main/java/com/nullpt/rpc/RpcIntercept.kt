@@ -5,13 +5,13 @@ package com.nullpt.rpc
  */
 internal interface RpcIntercept {
 
-    fun next(chain: Chain): Any
+    fun next(chain: Chain): RpcStream
 
     interface Chain {
 
-        fun request(): Any
+        fun request(): RpcStream
 
-        fun proceed(request: Any): Any
+        fun proceed(request: RpcStream): RpcStream
 
     }
 

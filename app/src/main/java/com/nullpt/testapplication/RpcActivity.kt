@@ -39,10 +39,12 @@ class RpcActivity : AppCompatActivity(), CoroutineScope by CoroutineScope(Dispat
         rpcRequest.setOnClickListener {
             launch {
                 val result1 = async(Dispatchers.IO) {
-                    rpcInterface.plus(rpcParams1.text.toString().toLong(), rpcParams2.text.toString().toLong())
+                    val a = if (rpcParams1.text.isNullOrEmpty()) 0 else rpcParams1.text.toString().toLong()
+                    val b = if (rpcParams2.text.isNullOrEmpty()) 0 else rpcParams2.text.toString().toLong()
+                    rpcInterface.plus(a, b)
                 }
                 val result2 = async(Dispatchers.IO) {
-                    rpcInterface.addString("123qwe", "123456")
+                    rpcInterface.addString("baiguoqing", "-gogogo")
                 }
                 rpcText.text = result1.await().toString() + "\n" + result2.await()
             }
