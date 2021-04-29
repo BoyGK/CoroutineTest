@@ -5,6 +5,7 @@ import com.nullpt.rpc.RpcObject
 import com.nullpt.rpc.RpcStream
 import com.nullpt.rpc.encryption.AESUtil
 import com.nullpt.rpc.encryption.RSAUtil
+import com.nullpt.rpc.log
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.ObjectInputStream
@@ -29,6 +30,9 @@ internal class RpcSecretIntercept : RpcIntercept {
          */
         private lateinit var secretKey: ByteArray
 
+        /**
+         * key tag
+         */
         private var hasKey = false
 
     }
@@ -37,43 +41,52 @@ internal class RpcSecretIntercept : RpcIntercept {
         val inStream = chain.request()
         val rpcObject = inStream.rpcObject ?: return inStream
 
-        //encrypt
+        //exchange secret key
         if (!hasKey) {
-            var outStream: RpcStream
+            synchronized(hasKey) {
+                if (!hasKey) {
 
-            //协商公钥 send 01
-            val requestPublicKey = ByteArray(2) { it.toByte() }
-            inStream.body = requestPublicKey
-            outStream = chain.proceed(inStream)
-            val publicKeyBody = outStream.body ?: ByteArray(0)
-            if (publicKeyBody.isEmpty()) {
-                outStream.result = Unit
-                return outStream
-            }
-            publicKey = RSAUtil.getPublicKey(publicKeyBody)
+                    log { "exchange secret key" }
 
-            //创建AES
-            secretKey = AESUtil.generateKey()
-            val secretAESBody = RSAUtil.encryptByPublicKey(secretKey, publicKey)
-            inStream.body = secretAESBody
-            outStream = chain.proceed(inStream)
-            val response = outStream.body ?: ByteArray(0)
-            if (response.isEmpty()) {
-                outStream.result = Unit
-                return outStream
-            }
-            //receive 0b11
-            if (response.size == 2 && response[0] == 1.toByte() && response[1] == 1.toByte()) {
-                hasKey = true
-            } else {
-                outStream.result = Unit
-                return outStream
-            }
+                    //send 01 , ask exchange secret key
+                    val requestPublicKey = ByteArray(2) { it.toByte() }
+                    inStream.body = requestPublicKey
+                    var outStream = chain.proceed(inStream)
+                    val publicKeyBody = outStream.body ?: ByteArray(0)
+                    if (publicKeyBody.isEmpty()) {
+                        outStream.result = Unit
+                        return outStream
+                    }
+                    publicKey = RSAUtil.getPublicKey(publicKeyBody)
 
+                    //send 10 and send aes
+                    inStream.body = ByteArray(2) { arrayOf(1.toByte(), 0.toByte())[it] }
+                    chain.proceed(inStream)
+                    secretKey = AESUtil.generateKey()
+                    val secretAESBody = RSAUtil.encryptByPublicKey(secretKey, publicKey)
+                    inStream.body = secretAESBody
+                    outStream = chain.proceed(inStream)
+                    val response = outStream.body ?: ByteArray(0)
+                    if (response.isEmpty()) {
+                        outStream.result = Unit
+                        return outStream
+                    }
+                    //receive exchange result , 0b11:success
+                    if (response.size == 2 && response[0] == 1.toByte() && response[1] == 1.toByte()) {
+                        hasKey = true
+                    } else {
+                        outStream.result = Unit
+                        return outStream
+                    }
+
+                    log { "exchange secret key end , hasKey:$hasKey" }
+
+                }
+            }
         }
 
-        //aes 加密
-        inStream.body = encrypt(rpcObject)
+        //aes encrypt and send
+        inStream.body = AESUtil.encrypt(object2Bytes(rpcObject), secretKey)
         val outStream = chain.proceed(inStream)
 
         val secretBody = outStream.body ?: ByteArray(0)
@@ -81,24 +94,24 @@ internal class RpcSecretIntercept : RpcIntercept {
             outStream.result = Unit
             return outStream
         }
-        //decrypt
-        outStream.result = decrypt(secretBody)
+        //decrypt to result
+        outStream.result = byte2Object(AESUtil.decrypt(secretBody, secretKey))
         return outStream
     }
 
     /**
-     * assume decrypt
+     * byte2Object
      */
-    private fun decrypt(byteArray: ByteArray): Any {
+    private fun byte2Object(byteArray: ByteArray): Any {
         val byteArrayInputStream = ByteArrayInputStream(byteArray)
         val objectInputStream = ObjectInputStream(byteArrayInputStream)
         return objectInputStream.readObject()
     }
 
     /**
-     * assume encrypt
+     * object2Bytes
      */
-    private fun encrypt(rpcObject: RpcObject): ByteArray {
+    private fun object2Bytes(rpcObject: RpcObject): ByteArray {
         val byteArrayOutputStream = ByteArrayOutputStream()
         val objectOutputStream = ObjectOutputStream(byteArrayOutputStream)
         objectOutputStream.writeObject(rpcObject)

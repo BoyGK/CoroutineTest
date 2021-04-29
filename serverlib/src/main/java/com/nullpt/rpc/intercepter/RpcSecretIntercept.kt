@@ -3,10 +3,14 @@ package com.nullpt.rpc.intercepter
 import com.nullpt.rpc.RpcIntercept
 import com.nullpt.rpc.RpcObject
 import com.nullpt.rpc.RpcStream
+import com.nullpt.rpc.encryption.AESUtil
+import com.nullpt.rpc.encryption.RSAUtil
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.ObjectInputStream
 import java.io.ObjectOutputStream
+import java.security.PrivateKey
+import java.security.PublicKey
 
 /**
  * rpc secret params
@@ -15,23 +19,70 @@ import java.io.ObjectOutputStream
  */
 class RpcSecretIntercept : RpcIntercept {
 
-    override fun next(chain: RpcIntercept.Chain): RpcStream {
-        //decrypt
-        val inStream = chain.request()
-        val secretBody = inStream.secretBody ?: ByteArray(0)
-        inStream.secretBody = null
-        val rpcObject = decrypt(secretBody) ?: return inStream
-        inStream.rpcObject = rpcObject
-        val outStream = chain.proceed(inStream)
-        //encrypt
-        outStream.secretBody = encrypt(outStream.result)
-        return outStream
+    companion object {
+        /**
+         * rsa key pair
+         */
+        private lateinit var keyPair: Pair<PrivateKey, PublicKey>
+
+        /**
+         * aes key
+         */
+        private lateinit var secretKey: ByteArray
+
     }
 
     /**
-     * assume decrypt
+     * receive tag
      */
-    private fun decrypt(secretBody: ByteArray): RpcObject? {
+    private var receiveAES = false
+
+    override fun next(chain: RpcIntercept.Chain): RpcStream {
+
+        val inStream = chain.request()
+        val requestBody = inStream.body ?: ByteArray(0)
+        if (requestBody.isEmpty()) {
+            inStream.body = ByteArray(0)
+            return inStream
+        }
+
+        if (requestBody.size == 2 && requestBody[0] == 0.toByte() && requestBody[1] == 1.toByte()) {
+            //send public key
+            keyPair = RSAUtil.generateKey()
+            inStream.body = keyPair.second.encoded
+            return inStream
+        } else if (requestBody.size == 2 && requestBody[0] == 1.toByte() && requestBody[1] == 0.toByte()) {
+            //receive aes
+            receiveAES = true
+            inStream.body = ByteArray(0)
+            return inStream
+        } else if (receiveAES) {
+            receiveAES = false
+            //decrypt aes
+            secretKey = RSAUtil.decryptByPrivateKey(requestBody, keyPair.first)
+            inStream.body = ByteArray(2) { arrayOf(1.toByte(), 1.toByte())[it] }
+            return inStream
+        } else {
+            //secret message
+            val secretBody = inStream.body ?: ByteArray(0)
+            if (secretBody.isEmpty()) {
+                inStream.body = ByteArray(0)
+                return inStream
+            }
+            val decryptBody = AESUtil.decrypt(secretBody, secretKey)
+            val rpcObject = bytes2Object(decryptBody) ?: return inStream
+            inStream.rpcObject = rpcObject
+            val outStream = chain.proceed(inStream)
+            //encrypt
+            outStream.body = AESUtil.encrypt(object2bytes(outStream.result), secretKey)
+            return outStream
+        }
+    }
+
+    /**
+     * bytes2Object
+     */
+    private fun bytes2Object(secretBody: ByteArray): RpcObject? {
         if (secretBody.isEmpty()) {
             return null
         }
@@ -46,9 +97,9 @@ class RpcSecretIntercept : RpcIntercept {
     }
 
     /**
-     * assume encrypt
+     * object2bytes
      */
-    private fun encrypt(result: Any?): ByteArray {
+    private fun object2bytes(result: Any?): ByteArray {
         if (result == null || result is Unit) {
             return ByteArray(0)
         }

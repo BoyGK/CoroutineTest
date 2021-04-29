@@ -18,14 +18,14 @@ class RpcSocketIntercept : RpcIntercept {
         val inputStream = socket.getInputStream()
         val objectInputStream = ObjectInputStream(inputStream)
         val requestBody = objectInputStream.readObject()
-        inStream.secretBody = if (requestBody is ByteArray) {
+        inStream.body = if (requestBody is ByteArray) {
             requestBody
         } else {
             ByteArray(0)
         }
 
         val outStream = chain.proceed(inStream)
-        val result = outStream.secretBody ?: ByteArray(0)
+        val result = outStream.body ?: ByteArray(0)
 
         outStream.result = result.isNotEmpty()
 
