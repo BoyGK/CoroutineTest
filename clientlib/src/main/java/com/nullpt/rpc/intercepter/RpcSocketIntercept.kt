@@ -45,8 +45,8 @@ internal class RpcSocketIntercept : RpcIntercept {
         var socket: Socket? = null
         try {
             val inStream = chain.request()
-            val secretBody = inStream.secretBody ?: return inStream
-            inStream.secretBody = null
+            val secretBody = inStream.body ?: return inStream
+            inStream.body = null
 
             //create socket ,and connect
             socket = connectedSocket()
@@ -59,7 +59,7 @@ internal class RpcSocketIntercept : RpcIntercept {
             val inputStream = socket.getInputStream()
             val objectInputStream = ObjectInputStream(inputStream)
             val responseBody = objectInputStream.readObject()
-            inStream.secretBody = if (responseBody is ByteArray) {
+            inStream.body = if (responseBody is ByteArray) {
                 responseBody
             } else {
                 ByteArray(0)

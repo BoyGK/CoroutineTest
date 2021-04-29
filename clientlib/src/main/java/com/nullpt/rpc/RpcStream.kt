@@ -11,7 +11,7 @@ internal data class RpcStream(
         val args: Array<Any>,
         val default: (args: Array<Any>) -> Any,
         var rpcObject: RpcObject? = null,
-        var secretBody: ByteArray? = null,
+        var body: ByteArray? = null,
         var result: Any? = null,
         var tag: Any? = null
 ) {
@@ -31,10 +31,10 @@ internal data class RpcStream(
         if (!args.contentEquals(other.args)) return false
         if (default != other.default) return false
         if (rpcObject != other.rpcObject) return false
-        if (secretBody != null) {
-            if (other.secretBody == null) return false
-            if (!secretBody.contentEquals(other.secretBody)) return false
-        } else if (other.secretBody != null) return false
+        if (body != null) {
+            if (other.body == null) return false
+            if (!body.contentEquals(other.body)) return false
+        } else if (other.body != null) return false
         if (result != other.result) return false
         if (tag != other.tag) return false
 
@@ -47,7 +47,7 @@ internal data class RpcStream(
         result1 = 31 * result1 + args.contentHashCode()
         result1 = 31 * result1 + default.hashCode()
         result1 = 31 * result1 + (rpcObject?.hashCode() ?: 0)
-        result1 = 31 * result1 + (secretBody?.contentHashCode() ?: 0)
+        result1 = 31 * result1 + (body?.contentHashCode() ?: 0)
         result1 = 31 * result1 + (result?.hashCode() ?: 0)
         result1 = 31 * result1 + (tag?.hashCode() ?: 0)
         return result1
