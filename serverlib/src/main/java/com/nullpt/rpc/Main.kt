@@ -4,7 +4,6 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.ObjectInputStream
 import java.io.ObjectOutputStream
-import java.net.Socket
 import java.util.*
 import java.util.concurrent.Executors
 
@@ -23,34 +22,6 @@ fun main() {
             when (scanner.next()) {
                 "stop" -> {
                     RpcServer.stop()
-                }
-                "test" -> {
-                    try {
-                        val socket = Socket("localhost", Config.port)
-                        val os = socket.getOutputStream()
-                        val iss = socket.getInputStream()
-                        val objectOutputStream = ObjectOutputStream(os)
-
-                        val rpcObject = RpcObject(RpcInterface::class.java, "plus", arrayOf(123L, 456L))
-                        objectOutputStream.writeObject(testEncrypt(rpcObject))
-                        os.flush()
-
-                        val result = ObjectInputStream(iss).readObject()
-                        log {
-                            "rpc result:${testDecrypt(result)}"
-                        }
-
-                        //finish
-                        socket.shutdownInput()
-                        socket.shutdownOutput()
-                        iss.close()
-                        os.close()
-                        socket.close()
-                    } catch (ignore: Exception) {
-                        executors.shutdown()
-                        ignore.printStackTrace()
-                        return@execute
-                    }
                 }
             }
         }

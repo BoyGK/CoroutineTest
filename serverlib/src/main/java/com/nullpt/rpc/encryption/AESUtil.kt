@@ -12,9 +12,13 @@ import javax.crypto.spec.SecretKeySpec
  */
 fun main() {
     val key = AESUtil.generateKey()
-    val secretBody = AESUtil.encrypt("123456".toByteArray(), key)
+    println(key.contentToString())
+    val keyPair = RSAUtil.generateKey()
+    val secretBody = RSAUtil.encryptByPublicKey(key, keyPair.second)
+    val secretBody1 = RSAUtil.encryptByPublicKey(key, keyPair.second)
+
     println(String(secretBody))
-    println(String(AESUtil.decrypt(secretBody, key)))
+    println(String(secretBody1))
 }
 
 /**

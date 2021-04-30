@@ -24,18 +24,18 @@ internal class RpcSecretIntercept : RpcIntercept {
          * rsa key pair[publicKey]
          */
         private lateinit var publicKey: PublicKey
+        private var hasPublicKey = false
 
-        /**
-         * aes key
-         */
-        private lateinit var secretKey: ByteArray
-
-        /**
-         * key tag
-         */
-        private var hasKey = false
-
+        private const val SUCCESS = "success"
+        private const val ERROR = "error"
     }
+
+    /**
+     * aes key
+     */
+    private lateinit var secretKey: ByteArray
+
+    private var hasKey = false
 
     override fun next(chain: RpcIntercept.Chain): RpcStream {
         val inStream = chain.request()
@@ -43,46 +43,65 @@ internal class RpcSecretIntercept : RpcIntercept {
 
         //exchange secret key
         if (!hasKey) {
-            synchronized(hasKey) {
-                if (!hasKey) {
 
-                    log { "exchange secret key" }
+            log { "exchange secret key" }
 
-                    //send 01 , ask exchange secret key
+            synchronized(hasPublicKey) {
+                if (!hasPublicKey) {
+                    log { "exchange public key" }
+                    //send 01 , ask exchange secret key once
                     val requestPublicKey = ByteArray(2) { it.toByte() }
                     inStream.body = requestPublicKey
-                    var outStream = chain.proceed(inStream)
-                    val publicKeyBody = outStream.body ?: ByteArray(0)
-                    if (publicKeyBody.isEmpty()) {
+                    val outStream = chain.proceed(inStream)
+                    val responseBody = outStream.body ?: ByteArray(0)
+                    if (responseBody.isEmpty()) {
                         outStream.result = Unit
                         return outStream
                     }
-                    publicKey = RSAUtil.getPublicKey(publicKeyBody)
-
-                    //send 10 and send aes
-                    inStream.body = ByteArray(2) { arrayOf(1.toByte(), 0.toByte())[it] }
-                    chain.proceed(inStream)
-                    secretKey = AESUtil.generateKey()
-                    val secretAESBody = RSAUtil.encryptByPublicKey(secretKey, publicKey)
-                    inStream.body = secretAESBody
-                    outStream = chain.proceed(inStream)
-                    val response = outStream.body ?: ByteArray(0)
-                    if (response.isEmpty()) {
-                        outStream.result = Unit
-                        return outStream
-                    }
-                    //receive exchange result , 0b11:success
-                    if (response.size == 2 && response[0] == 1.toByte() && response[1] == 1.toByte()) {
-                        hasKey = true
-                    } else {
-                        outStream.result = Unit
-                        return outStream
-                    }
-
-                    log { "exchange secret key end , hasKey:$hasKey" }
-
+                    publicKey = RSAUtil.getPublicKey(responseBody)
+                    hasPublicKey = true
                 }
             }
+
+            log { "ready to aes key" }
+            //send 10 , to accept aes
+            inStream.body = ByteArray(2) { arrayOf(1.toByte(), 0.toByte())[it] }
+            var outStream = chain.proceed(inStream)
+            var responseBody = outStream.body ?: ByteArray(0)
+            if (responseBody.isEmpty()) {
+                outStream.result = Unit
+                return outStream
+            }
+            if (responseBody.size != 2 || responseBody[0] != 1.toByte() || responseBody[1] != 1.toByte()) {
+                outStream.result = Unit
+                return outStream
+            }
+            log { "ready to aes key success" }
+
+            log { "exchange aes key" }
+            //send ase key by pub encrypt
+            secretKey = AESUtil.generateKey()
+            inStream.body = RSAUtil.encryptByPublicKey(secretKey, publicKey)
+            outStream = chain.proceed(inStream)
+            responseBody = outStream.body ?: ByteArray(0)
+            if (responseBody.isEmpty()) {
+                outStream.result = Unit
+                return outStream
+            }
+
+            //receive exchange result
+            if (String(responseBody) == SUCCESS) {
+                hasKey = true
+                log { "exchange aes key success" }
+            } else {
+                hasKey = false
+                log { "exchange aes key error" }
+                outStream.result = Unit
+                return outStream
+            }
+
+            log { "exchange secret key end , hasKey:$hasKey" }
+
         }
 
         //aes encrypt and send

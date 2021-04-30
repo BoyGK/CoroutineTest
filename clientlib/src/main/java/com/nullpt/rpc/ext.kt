@@ -23,8 +23,10 @@ inline operator fun <reified T> ArrayList<T>.plus(t: T): ArrayList<T> {
 /**
  * normal log
  */
-fun log(message: () -> String) {
-    println("log --> time=${System.currentTimeMillis()}")
+fun log(time: Boolean = false, message: () -> String) {
+    if (time) {
+        println("log --> time=${System.currentTimeMillis()}")
+    }
     println(message.invoke())
     println("log <-- end\n")
 }

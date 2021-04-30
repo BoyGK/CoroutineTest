@@ -23,14 +23,16 @@ class RpcSecretIntercept : RpcIntercept {
         /**
          * rsa key pair
          */
-        private lateinit var keyPair: Pair<PrivateKey, PublicKey>
+        private val keyPair: Pair<PrivateKey, PublicKey> = RSAUtil.generateKey()
 
-        /**
-         * aes key
-         */
-        private lateinit var secretKey: ByteArray
-
+        private const val SUCCESS = "success"
+        private const val ERROR = "error"
     }
+
+    /**
+     * aes key
+     */
+    private lateinit var secretKey: ByteArray
 
     /**
      * receive tag
@@ -48,28 +50,26 @@ class RpcSecretIntercept : RpcIntercept {
 
         if (requestBody.size == 2 && requestBody[0] == 0.toByte() && requestBody[1] == 1.toByte()) {
             //send public key
-            keyPair = RSAUtil.generateKey()
             inStream.body = keyPair.second.encoded
             return inStream
         } else if (requestBody.size == 2 && requestBody[0] == 1.toByte() && requestBody[1] == 0.toByte()) {
             //receive aes
             receiveAES = true
-            inStream.body = ByteArray(0)
+            inStream.body = ByteArray(2) { arrayOf(1.toByte(), 1.toByte())[it] }
             return inStream
         } else if (receiveAES) {
             receiveAES = false
             //decrypt aes
             secretKey = RSAUtil.decryptByPrivateKey(requestBody, keyPair.first)
-            inStream.body = ByteArray(2) { arrayOf(1.toByte(), 1.toByte())[it] }
+            if (secretKey.isEmpty()) {
+                inStream.body = ERROR.toByteArray()
+            } else {
+                inStream.body = SUCCESS.toByteArray()
+            }
             return inStream
         } else {
             //secret message
-            val secretBody = inStream.body ?: ByteArray(0)
-            if (secretBody.isEmpty()) {
-                inStream.body = ByteArray(0)
-                return inStream
-            }
-            val decryptBody = AESUtil.decrypt(secretBody, secretKey)
+            val decryptBody = AESUtil.decrypt(requestBody, secretKey)
             val rpcObject = bytes2Object(decryptBody) ?: return inStream
             inStream.rpcObject = rpcObject
             val outStream = chain.proceed(inStream)
